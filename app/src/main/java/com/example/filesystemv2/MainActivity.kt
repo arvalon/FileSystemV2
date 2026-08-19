@@ -5,8 +5,10 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.provider.Settings
+import android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
 import android.util.Log
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -15,9 +17,10 @@ import com.example.filesystemv2.databinding.ActivityMainBinding
 class MainActivity : AppCompatActivity() {
 
     private val LOGTAG = "filesystemv2.log"
-    private val storagePermissionRequestCode = 666
 
     private lateinit var binding : ActivityMainBinding
+
+    private lateinit var storageActivityResultLauncher : ActivityResultLauncher<Intent>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,30 +49,48 @@ class MainActivity : AppCompatActivity() {
         }else{
             Log.d(LOGTAG,"Build.VERSION_CODES.R: "+Build.VERSION_CODES.R+", старая ОС (Android 10 и ниже)")
         }
+
+        // взял отсюда https://medium.com/@kezzieleo/manage-external-storage-permission-android-studio-java-9c3554cf79a7
+        storageActivityResultLauncher = registerForActivityResult(StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+
+                val intent = result.data
+                // Здесь логика: что делать, если разрешение получено
+                // или как запросить его у пользователя
+
+                Log.d(LOGTAG, "storageActivityResultLauncher result.resultCode: " + RESULT_OK)
+
+            } else if (result.resultCode == RESULT_CANCELED) {
+                // Пользователь отменил задачу
+                Log.d(LOGTAG, "storageActivityResultLauncher result.resultCode: " + RESULT_CANCELED)
+            }
+        }
     }
 
-    fun checkStoragePermission(){
+    fun checkStoragePermission() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             var isExternalStorageManagerFlag = Environment.isExternalStorageManager()
 
-            Log.d(LOGTAG,"Android 11+ Environment.isExternalStorageManager(): "+isExternalStorageManagerFlag)
+            Log.d(LOGTAG, "Android 11+ Environment.isExternalStorageManager(): " + isExternalStorageManagerFlag)
 
-            if (isExternalStorageManagerFlag){
+            if (isExternalStorageManagerFlag) {
 
-                Log.d(LOGTAG,"Права на Storage есть, ничего запрашивать не надо")
-            }else{
-                Log.d(LOGTAG,"Запрашиваем эти долбанные права")
+                Log.d(LOGTAG, "Права на Storage есть, ничего запрашивать не надо")
+            } else {
+                Log.d(LOGTAG, "Запрашиваем эти долбанные права")
 
-                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                val intent = Intent().apply {
+                    action = ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
+                    // Другие параметры для настройки доступа
+                }
                 intent.addCategory("android.intent.category.DEFAULT")
                 intent.setData(Uri.parse(String.format("package:%s",getPackageName())))
-                startActivityForResult(intent, storagePermissionRequestCode)
-
+                storageActivityResultLauncher.launch(intent)
             }
 
-        }else{
-            Log.d(LOGTAG,"Android 10- Environment.isExternalStorageManager()")
+        } else {
+            Log.d(LOGTAG, "Android 10-")
         }
     }
 }
